@@ -1,0 +1,422 @@
+{
+  "name": "Telegram Weather Bot",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "293c7563-a966-48d0-adfd-beea3d3a6a12",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -48,
+        0
+      ],
+      "webhookId": "telegram-webhook",
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram Bot API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "queue-assignment",
+              "name": "queue",
+              "value": "={{ $json.message.text.trim().toLowerCase().replace(/\\s*,\\s*/g, ',') }}",
+              "type": "string"
+            },
+            {
+              "id": "chat-id-assignment",
+              "name": "chatId",
+              "value": "={{ $json.message.chat.id }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a4c8adc8-23f7-437d-8e2e-add7a4d3c67d",
+      "name": "Set Queue Variable",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        176,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.openweathermap.org/data/2.5/weather",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $json.queue }}"
+            },
+            {
+              "name": "units",
+              "value": "metric"
+            },
+            {
+              "name": "lang",
+              "value": "pt_br"
+            },
+            {
+              "name": "appid",
+              "value": "={{ $env.OPENWEATHER_API_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "id": "831f43da-e496-4e25-914b-169ecedfbf92",
+      "name": "OpenWeather API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "check-cod",
+              "leftValue": "={{ $json.cod.toString()}}",
+              "rightValue": "=400",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            },
+            {
+              "id": "50cc9640-e986-4dd6-a103-f793c69f5642",
+              "leftValue": "={{ $json.cod.toString()}}",
+              "rightValue": "=404",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            },
+            {
+              "id": "f3e0331c-d79c-4364-a0ec-bab551b6cb8a",
+              "leftValue": "",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "521ace26-d81a-4781-bc4b-5d69be461e3c",
+      "name": "Validate Response",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        624,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const weatherData = $input.first().json;\nconst cityName = weatherData.city;\nconst temp = Math.round(weatherData.temp);\n\nconst message = `🌤️ A temperatura em ${cityName} é de ${temp}°C.`;\n\nreturn {\n  json: {\n    message: message,\n    ok: true,\n    source: 'fallback',\n  }\n};"
+      },
+      "id": "a400f751-4c95-4f96-8d62-73cdd5b49922",
+      "name": "Fallback Code",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1424,
+        -24
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "=define",
+        "text": "={\ncity: '{{ $json.city }}',\ncountry: '{{ $json.country }}',\ntemp: '{{ $json.temp }}'\n}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "### PERSONA Você é um assistente de clima amigável, carismático e prestativo. Sua missão é informar a temperatura de forma humana, como se fosse um amigo local dando um toque sobre o tempo. \n\n### OBJETIVO Receber dados brutos (City, Country, Temp[Weather]) e transformá-los em uma mensagem natural e envolvente para usuários do Telegram. \n\n ### DIRETRIZES DE ESTILO (Reescrita Natural) \n1. **Tom de Voz:** Conversacional, leve e levemente caloroso (ou fresco, dependendo do clima!). Use emojis pertinentes ao clima. \n2. **Tradução e Localização:** Responda SEMPRE em português brasileiro (PT-BR). Certifique-se de que os nomes de cidades e países estejam traduzidos corretamente (ex: \"London\" vira \"Londres\"). \n3. **Desambiguação:** Se o nome da cidade for ambíguo, use o país fornecido para confirmar a localização (ex: \"Paris, França\" vs \"Paris, Texas\"). \n4. **Contexto Humano:** Não diga apenas o número. Interprete a temperatura:    - < 10°C: Comente que está frio e sugira um casaco ou café.    - 10°C - 20°C: Clima ameno/fresco.    - 21°C - 29°C: Clima agradável/quente.    - > 30°C: Está calor! Lembre o usuário de se hidratar.  \n\n### Regras\n- Se algum parâmetro de entrada vier vazio, apenas retorne \"❌ Cidade não encontrada. Use o formato Cidade,UF (ex.: São Paulo, BR).\"\n- Se não souber o que responder, apenas responsa \"❌ Cidade não encontrada. Use o formato Cidade,UF (ex.: São Paulo, BR).\"\n- Não responsa sobre o que não sabe\n- Apenas deve responder sobre a temperatura sempre\n\n\n### REGRAS DE SAÍDA (Output) \n- Nunca use termos técnicos de API ou JSON. \n- Mantenha a resposta concisa (ideal para leitura rápida no Telegram). \n- Use negrito no nome da cidade e na temperatura para facilitar a leitura.\n- Sempre arredonde a temperatura.Não deve conter numeros fracionados. Ex: 15,8 -> 16\n\n### EXEMPLO DE ENTRADA city: London, country:UK,temp: 8\n ### EXEMPLO DE RESPOSTA ESPERADA \"Olha, o pessoal em **Londres** está sentindo aquele friozinho típico! 🇬🇧 No momento, faz **8°C**. Melhor não esquecer o cachecol se for sair de casa agora! 🧣☕\""
+            }
+          ]
+        }
+      },
+      "id": "5f4f2bcc-afc9-4755-9f49-d88a68c8f2e6",
+      "name": "Basic LLM Chain",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [
+        1072,
+        -96
+      ],
+      "notesInFlow": false,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3-flash-preview",
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "id": "4581c402-881c-450e-84e1-df16c53f6527",
+      "name": "Google Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1144,
+        128
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "",
+          "name": "Google Gemini API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Set Queue Variable').item.json.chatId }}",
+        "text": "❌ Cidade não encontrada. Use o formato Cidade,UF (ex.: São Paulo, BR).",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "ed9ca8c4-a116-42cf-8077-0cbb4362a4c5",
+      "name": "Send Error Message",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        848,
+        96
+      ],
+      "webhookId": "7cbee489-0aa3-4a70-b3dd-672daef6b970",
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram Bot API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Fallback",
+        "height": 224,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1352,
+        -88
+      ],
+      "typeVersion": 1,
+      "id": "209a3857-444e-47d2-9b4d-f9a28047a05e",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "48b32dad-aa19-4e9e-9a7d-fd6f80c63630",
+              "name": "temp",
+              "value": "={{ $json.main.temp }}",
+              "type": "number"
+            },
+            {
+              "id": "435dfc33-3b64-4ae5-9ef1-b4596a3ccfcc",
+              "name": "country",
+              "value": "={{ $json.sys.country }}",
+              "type": "string"
+            },
+            {
+              "id": "d25c62cd-7c95-4736-9759-1b8f759393ce",
+              "name": "city",
+              "value": "={{ $json.name }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        848,
+        -96
+      ],
+      "id": "9de005a2-4311-4aac-bddd-e499a07000a9",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Set Queue Variable').item.json.chatId }}",
+        "text": "={{ $json.text || $json.message }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "660f551b-0a21-42b3-9180-786d783a2b68",
+      "name": "Send Weather Response1",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1648,
+        -96
+      ],
+      "webhookId": "9f046eaa-d43d-4758-af1c-efd21aaa44c9",
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram Bot API"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set Queue Variable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Queue Variable": {
+      "main": [
+        [
+          {
+            "node": "OpenWeather API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenWeather API": {
+      "main": [
+        [
+          {
+            "node": "Validate Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Response": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Error Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fallback Code": {
+      "main": [
+        [
+          {
+            "node": "Send Weather Response1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Send Weather Response1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallback Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "6a45ef9c-e37d-474a-a6ee-a3d06bb1a95d",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "id": "N7730mfZVQQJbYJJ",
+  "tags": []
+}
