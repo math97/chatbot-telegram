@@ -125,12 +125,11 @@
             },
             {
               "id": "f3e0331c-d79c-4364-a0ec-bab551b6cb8a",
-              "leftValue": "",
-              "rightValue": "",
+              "leftValue": "={{ $json.cod.toString()}}",
+              "rightValue": "401",
               "operator": {
                 "type": "string",
-                "operation": "equals",
-                "name": "filter.operator.equals"
+                "operation": "notEquals"
               }
             }
           ],
